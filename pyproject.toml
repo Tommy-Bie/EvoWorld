@@ -1,0 +1,71 @@
+[project]
+name = "seerworld"
+version = "0.1.0"
+description = "Training and inference code for SeerWorld"
+requires-python = "==3.10.*"
+dependencies = [
+    "ltx-core",
+    "ltx-pipelines",
+    "ltx-trainer",
+    "huggingface-hub>=0.31.4",
+    "PyYAML>=6",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+# This extra reproduces the CUDA attention backend used for training.
+natten = ["ltx-core[natten]"]
+
+[tool.uv]
+package = false
+# Versions verified in the original GPU training environment on 2026-10-13.
+# CUDA build suffixes are supplied by the explicit package indexes below.
+override-dependencies = [
+    "torch==2.13.0",
+    "torchvision==0.28.0",
+    "torchaudio==2.11.0",
+    "accelerate==1.14.0",
+    "transformers==5.14.1",
+    "peft==0.20.0",
+    "natten==0.21.7+torch2130cu132",
+    "safetensors==0.8.0",
+    # Avoid mixing the PyTorch cu132 wheel's older cuDNN dependency with the
+    # cuDNN series used by the original training host.
+    "nvidia-cudnn-cu13==9.21.1.3",
+]
+
+[tool.uv.sources]
+ltx-core = { workspace = true }
+ltx-pipelines = { workspace = true }
+ltx-trainer = { workspace = true }
+torch = { index = "torch-cu132" }
+torchvision = { index = "torch-cu132" }
+torchaudio = { index = "torch-test-cu132" }
+natten = { index = "natten" }
+
+[tool.uv.workspace]
+members = [
+    "packages/ltx-core",
+    "packages/ltx-pipelines",
+    "packages/ltx-trainer",
+]
+
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+
+[[tool.uv.index]]
+name = "torch-cu132"
+url = "https://download.pytorch.org/whl/cu132"
+explicit = true
+
+[[tool.uv.index]]
+name = "torch-test-cu132"
+url = "https://download.pytorch.org/whl/test/cu132/"
+explicit = true
+
+[[tool.uv.index]]
+name = "natten"
+url = "https://whl.natten.org"
+format = "flat"
+explicit = true
