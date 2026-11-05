@@ -46,9 +46,7 @@ Exact verified versions are recorded in [docs/TRAINING_ENVIRONMENT.md](docs/TRAI
 
 ## 🧱 Model Download
 
-EvoWorld is built upon [LTX-2.5](https://huggingface.co/Lightricks/LTX-2.5).
-Download the EvoWorld model repository, which includes the exact LTX-2.5
-components used in our experiments and the released EvoWorld model weights:
+Download the EvoWorld model repository using the following commands:
 
 ```bash
 uv run hf auth login
