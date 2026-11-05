@@ -7,7 +7,7 @@
 [![Code](https://img.shields.io/badge/Code-GitHub-181717?logo=github&logoColor=white)](https://github.com/Tommy-Bie/EvoWorld)
 [![Model](https://img.shields.io/badge/🤗%20Model-EvoWorld-FFD21E)](https://huggingface.co/Tommy-Bie/EvoWorld)
 [![Data](https://img.shields.io/badge/🤗%20Data-EvoWorld--Data-FFD21E)](https://huggingface.co/datasets/Tommy-Bie/EvoWorld-Data)
-[![Benchmark](https://img.shields.io/badge/🤗%20Benchmark-EvoWorld--Bench-FFD21E)](https://huggingface.co/datasets/Tommy-Bie/EvoWorld-Bench)
+[![Evaluation](https://img.shields.io/badge/🤗%20Evaluation-EvoWorld--Bench-FFD21E)](https://huggingface.co/datasets/Tommy-Bie/EvoWorld-Bench)
 
 </div>
 
