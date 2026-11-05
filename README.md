@@ -13,7 +13,7 @@
 
 ## 🌍 Overview
 
-We are excited to introduce **EvoWorld**, a video generation model for
+We are excited to introduce **EvoWorld**, a video generation system for
 out-of-sight world evolution. EvoWorld combines a VLM brain with a visual
 renderer, enabling off-screen entities to remain active participants in an
 evolving world. Within a bidirectional autoregressive paradigm, EvoWorld supports
