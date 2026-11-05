@@ -47,22 +47,13 @@ Exact verified versions are recorded in [docs/TRAINING_ENVIRONMENT.md](docs/TRAI
 ## 🧱 Model Download
 
 EvoWorld is built upon [LTX-2.5](https://huggingface.co/Lightricks/LTX-2.5).
-Download the required model components:
+Download the EvoWorld model repository, which includes the exact LTX-2.5
+components used in our experiments and the released EvoWorld model weights:
 
 ```bash
 uv run hf auth login
 
-uv run hf download Lightricks/LTX-2.5 \
-  diffusion_models/ltx-2.5-22b-dev-transformer-bf16.safetensors \
-  text_encoders/gemma4-12b-with-proj-ltx-2.5-bf16.safetensors \
-  vae/ltx-2.5-video-vae-bf16.safetensors \
-  vae/ltx-2.5-audio-vae-bf16.safetensors \
-  loras/ltx-2.5-22b-distilled-lora-450-bf16.safetensors \
-  --local-dir models/ltx-2.5
-
-uv run hf download Tommy-Bie/EvoWorld \
-  weights/evoworld_lora.safetensors \
-  --local-dir models/EvoWorld
+uv run hf download Tommy-Bie/EvoWorld --local-dir models/EvoWorld
 ```
 
 

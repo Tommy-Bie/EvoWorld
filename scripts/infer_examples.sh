@@ -44,12 +44,12 @@ GPU_LIST="${EW_DEMO_GPUS:-0 1 2 3 4 5}"
 
 [ -x "$PY" ] || fail "Python not found: $PY (run uv sync or set EW_PYTHON)"
 
-export EW_LTX_ROOT="${EW_LTX_ROOT:-$ROOT/models/ltx-2.5}"
+export EW_LTX_ROOT="${EW_LTX_ROOT:-$ROOT/models/EvoWorld}"
 export EW_CKPT="${EW_CKPT:-$EW_LTX_ROOT/diffusion_models/ltx-2.5-22b-dev-transformer-bf16.safetensors}"
 export EW_GEMMA="${EW_GEMMA:-$EW_LTX_ROOT/text_encoders/gemma4-12b-with-proj-ltx-2.5-bf16.safetensors}"
 export EW_VIDEO_VAE="${EW_VIDEO_VAE:-$EW_LTX_ROOT/vae/ltx-2.5-video-vae-bf16.safetensors}"
 export EW_DISTILLED_LORA="${EW_DISTILLED_LORA:-$EW_LTX_ROOT/loras/ltx-2.5-22b-distilled-lora-450-bf16.safetensors}"
-export EW_INFERENCE_LORA="${EW_INFERENCE_LORA:-$ROOT/models/EvoWorld/weights/evoworld_lora.safetensors}"
+export EW_INFERENCE_LORA="${EW_INFERENCE_LORA:-$EW_LTX_ROOT/weights/evoworld_lora.safetensors}"
 
 read -r -a GPUS <<< "$GPU_LIST"
 [ "${#GPUS[@]}" -gt 0 ] || fail "EW_DEMO_GPUS is empty"
