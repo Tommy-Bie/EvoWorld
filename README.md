@@ -96,12 +96,16 @@ For online reasoning with a live VLM brain, see
 
 We release both the original MP4 videos and the preprocessing cache. The cache
 provides a convenient path for training directly without preprocessing the raw
-videos:
+videos. Set `EVOWORLD_DATA_DIR` to the directory where you want to store the
+training cache:
 
 ```bash
 uv run hf auth login
 export HF_XET_HIGH_PERFORMANCE=1
 export EVOWORLD_DATA_DIR="$PWD/data/EvoWorld-Data"
+
+# Alternatively, use any location with sufficient storage.
+# export EVOWORLD_DATA_DIR="/path/to/EvoWorld-Data"
 
 uv run python scripts/download_training_cache.py \
   --dataset-dir "$EVOWORLD_DATA_DIR" \
@@ -116,6 +120,10 @@ See [docs/DATA.md](docs/DATA.md) for details.
 ## 🏋️ Training Quick Start
 
 ```bash
+# Use the same directory selected when downloading the training cache.
+export EVOWORLD_DATA_DIR="$PWD/data/EvoWorld-Data"
+# For a custom location, replace it with: /path/to/EvoWorld-Data
+
 source .env
 source "$EVOWORLD_DATA_DIR/.env.cache"
 bash scripts/train_stage1.sh

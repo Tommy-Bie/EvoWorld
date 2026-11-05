@@ -12,6 +12,9 @@ uv run hf auth login
 export HF_XET_HIGH_PERFORMANCE=1
 export EVOWORLD_DATA_DIR="$PWD/data/EvoWorld-Data"
 
+# Alternatively, choose another location.
+# export EVOWORLD_DATA_DIR="/path/to/EvoWorld-Data"
+
 uv run python scripts/download_training_cache.py \
   --dataset-dir "$EVOWORLD_DATA_DIR" \
   --env-file "$EVOWORLD_DATA_DIR/.env.cache"
