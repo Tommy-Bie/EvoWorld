@@ -24,8 +24,3 @@ EW_DEMO_GPUS="0" \
 bash scripts/infer_examples.sh --case media/example1
 ```
 
-The VLM observes the generated initial and event segments, records the entity
-and event, writes the revisit reaction prompt, and verifies the final generated
-segment. The renderer uses the GPUs listed in `EW_DEMO_GPUS`; the VLM service
-is managed separately.
-

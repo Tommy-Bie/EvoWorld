@@ -1,7 +1,0 @@
-# Compatibility-only pip entry point. The reproducible installation uses
-# `uv sync --extra natten`; see docs/TRAINING_ENVIRONMENT.md.
--e ./packages/ltx-core
--e ./packages/ltx-pipelines
--e ./packages/ltx-trainer
-PyYAML>=6
-requests>=2.31

@@ -20,11 +20,7 @@ evolving world. Within a bidirectional autoregressive paradigm, EvoWorld support
 event-triggered world evolution, subject and scene revisitation, and
 out-of-sight dynamics rendering.
 
-<p align="center">
-  <a href="https://tommy-bie.github.io/projects/evoworld/assets/videos/vlm-rollout-demo.mp4">
-    <img src="assets/posters/vlm-rollout-demo.jpg" alt="EvoWorld demo video" width="100%">
-  </a>
-</p>
+https://github.com/user-attachments/assets/1d27e970-8033-4372-92ac-8bbb1c2e1438
 
 ## 🛠️ Installation
 
