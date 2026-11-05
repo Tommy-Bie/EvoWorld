@@ -1,9 +1,9 @@
-# Portable Stage-1 recipe. scripts/configure.py resolves ${CW_*} placeholders.
+# Portable Stage-1 recipe. scripts/configure.py resolves ${EW_*} placeholders.
 model:
-  model_path: ${CW_CKPT}
-  text_encoder_path: ${CW_GEMMA}
-  video_vae_path: ${CW_VIDEO_VAE}
-  audio_vae_path: ${CW_AUDIO_VAE}
+  model_path: ${EW_CKPT}
+  text_encoder_path: ${EW_GEMMA}
+  video_vae_path: ${EW_VIDEO_VAE}
+  audio_vae_path: ${EW_AUDIO_VAE}
   training_mode: lora
   load_checkpoint: null
 lora:
@@ -47,10 +47,9 @@ acceleration:
   load_text_encoder_in_8bit: false
   offload_optimizer_during_validation: true
 data:
-  preprocessed_data_root: ${CW_DATA}
+  preprocessed_data_root: ${EW_DATA}
   num_dataloader_workers: 4
-# Internal validation cases are not distributed. Enable validation after adding
-# your own held-out samples; this changes monitoring, not the training objective.
+# Add custom validation samples here if needed.
 validation:
   video_dims: [896, 512, 113]
   frame_rate: 24.0
@@ -73,7 +72,7 @@ hub:
   hub_model_id: null
 wandb:
   enabled: false
-  project: seerworld
-  tags: [seerworld, stage1, iaa, rank128]
+  project: evoworld
+  tags: [evoworld, stage1, iaa, rank128]
 seed: 42
-output_dir: ${CW_OUTPUT_ROOT}/seerworld_stage1_iaafix
+output_dir: ${EW_OUTPUT_ROOT}/evoworld_stage1_iaafix

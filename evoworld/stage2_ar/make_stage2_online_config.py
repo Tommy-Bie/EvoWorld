@@ -37,9 +37,7 @@ def main() -> None:
     cfg["validation"]["interval"] = args.validate_every if args.validate_every > 0 else None
     cfg["validation"]["skip_initial_validation"] = True
     if args.validate_every <= 0:
-        # Online rollout already dominates compute.  Leaving Stage-1 validation
-        # samples here would make every rank load Gemma/VAEs/decoders even though
-        # interval=None means they can never run.
+        # Disable validation assets when validation is not scheduled.
         cfg["validation"]["samples"] = []
         cfg["validation"]["prompts"] = []
         cfg["validation"]["images"] = None

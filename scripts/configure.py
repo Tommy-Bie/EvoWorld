@@ -22,7 +22,7 @@ def expand(value: object) -> object:
             if not os.environ.get(name):
                 raise ValueError(f"Missing environment variable: {name}. See scripts/env.example.sh")
             return os.environ[name]
-        return re.sub(r"\$\{(CW_[A-Z0-9_]+)\}", replace, value)
+        return re.sub(r"\$\{(EW_[A-Z0-9_]+)\}", replace, value)
     return value
 
 

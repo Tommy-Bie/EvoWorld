@@ -1,7 +1,7 @@
 [project]
-name = "seerworld"
+name = "evoworld"
 version = "0.1.0"
-description = "Training and inference code for SeerWorld"
+description = "Training and inference code for EvoWorld"
 requires-python = "==3.10.*"
 dependencies = [
     "ltx-core",

@@ -1,7 +1,7 @@
 """Self-contained validation runner for LTX-2 training.
 
-Modified by the SeerWorld authors from the LTX-2 upstream implementation for
-the portable SeerWorld training release.
+Modified by the EvoWorld authors from the LTX-2 upstream implementation for
+the portable EvoWorld training release.
 
 Encapsulates all validation concerns: model loading, embedding caching,
 conditioning media encoding, sample generation (denoising + decoding),
@@ -448,10 +448,8 @@ class ValidationRunner:
                     cond.temporal_scale_factor,
                 )
                 latent = self._encode_video(preprocessed, vae_encoder, device)
-                # I2V training uses exactly the first latent as its entity reference.
-                # The shared validation clip contains 9 frames (=2 latents) for V2V, so
-                # crop it here under the same runtime switch used by the dataset.
-                if int(os.environ.get("CW_I2V_START", "0") or 0) != 0:
+                # Match the entity-reference length used by I2V training.
+                if int(os.environ.get("EW_I2V_START", "0") or 0) != 0:
                     latent = latent[:, :, :1]
                 sample_media.conditions[cond_idx] = CachedConditionMedia(
                     latent=latent, pixels=pixels if cond.include_in_output else None
@@ -630,17 +628,15 @@ class ValidationRunner:
             else:
                 video_state = video_tools.create_initial_state(device=device, dtype=torch.bfloat16)
                 video_state = self._apply_video_conditionings(video_state, video_tools, sample, cached_media, device)
-                # The IAA template deliberately selects revisit-only validation samples.
-                # Mirror deployment here; otherwise training uses IAA while every W&B
-                # validation video silently evaluates the base attention path.
-                if int(os.environ.get("CW_USE_IAA", "0") or 0) != 0:
-                    from iaa_utils import apply_iaa_to_state  # SeerWorld entrypoint is on sys.path
+                # Apply IAA consistently during validation.
+                if int(os.environ.get("EW_USE_IAA", "0") or 0) != 0:
+                    from iaa_utils import apply_iaa_to_state  # EvoWorld entrypoint is on sys.path
 
                     video_state = apply_iaa_to_state(
                         video_state,
                         revisit_this_seg=True,
                         timestep_ratio=0.0,
-                        n_entity_ref_latents=int(os.environ.get("CW_IAA_ENTITY_REFS", "2") or 2),
+                        n_entity_ref_latents=int(os.environ.get("EW_IAA_ENTITY_REFS", "2") or 2),
                         h_pat=height // 32,
                         w_pat=width // 32,
                     )
@@ -1297,9 +1293,7 @@ class ValidationRunner:
             positions=state.positions,
             context=context,
             context_mask=None,
-            # Preserve conditioning/IAA self-attention masks. Dropping this field here
-            # silently made every inference-side attention mask a no-op even though the
-            # LatentState correctly carried it through the denoising loop.
+            # Preserve the state attention mask.
             attention_mask=state.attention_mask,
             keyframes_mask=state.keyframes_mask,
         )

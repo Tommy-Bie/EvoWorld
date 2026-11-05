@@ -1,4 +1,4 @@
-"""Check the core versions used by the original SeerWorld training run."""
+"""Check the core EvoWorld training environment."""
 
 from __future__ import annotations
 
@@ -10,9 +10,6 @@ import torch
 
 EXPECTED = {
     "torch": {"2.13.0+cu132"},
-    # The original environment's metadata reported 0.28.0, while a fresh
-    # installation from the cu132 index reports the equivalent local version
-    # 0.28.0+cu132.
     "torchvision": {"0.28.0", "0.28.0+cu132"},
     "torchaudio": {"2.11.0+cu132"},
     "accelerate": {"1.14.0"},

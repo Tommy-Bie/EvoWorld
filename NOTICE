@@ -1,7 +1,7 @@
-SeerWorld
-Copyright 2026 SeerWorld Authors
+EvoWorld
+Copyright 2026 EvoWorld Authors
 
-Original SeerWorld contributions are licensed under the Apache License 2.0.
+Original EvoWorld contributions are licensed under the Apache License 2.0.
 
 This distribution includes source derived from LTX-2 by Lightricks Ltd. The
 vendored LTX packages under packages/, modifications to those packages, and
@@ -11,10 +11,10 @@ Apache-2.0 license does not replace or relax that agreement.
 
 Upstream project: https://github.com/Lightricks/LTX-2
 
-The following upstream files carry SeerWorld modifications in this release:
+The following upstream files carry EvoWorld modifications in this release:
 
 - packages/ltx-trainer/src/ltx_trainer/training_strategies/flexible.py
 - packages/ltx-trainer/src/ltx_trainer/validation_runner.py
 
-Additional SeerWorld training and inference modules integrate with and extend
+Additional EvoWorld training and inference modules integrate with and extend
 the LTX-2 runtime.

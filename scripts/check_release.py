@@ -27,8 +27,15 @@ def main() -> None:
             for marker in ("/" + "efs/", "/" + "Users/", "/" + "root/"):
                 if marker in content:
                     errors.append(f"Machine-specific path: {path.relative_to(ROOT)}")
-    for relative in ("seerworld/train_stage1.py", "seerworld/iaa_utils.py",
-                     "seerworld/stage2_ar/train_stage2_online_ar.py",
+    for relative in ("evoworld/train_stage1.py", "evoworld/iaa_utils.py",
+                     "evoworld/stage2_ar/train_stage2_online_ar.py",
+                     "evoworld/inference/deploy_pipeline.py",
+                     "evoworld/inference/utils.py",
+                     "scripts/infer_examples.sh",
+                     "scripts/prepare_inference_examples.py",
+                     "docs/VLM_INFERENCE.md",
+                     "examples/prompts/cases.jsonl",
+                     "examples/prompts/reasoning_prompts.jsonl",
                      "scripts/download_training_cache.py",
                      "licenses/LTX-LICENSE.md", "LICENSE", "NOTICE"):
         if not (ROOT / relative).is_file():

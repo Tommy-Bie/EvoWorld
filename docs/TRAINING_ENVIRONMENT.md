@@ -1,8 +1,5 @@
 # Training environment
 
-The public installation is managed with [uv](https://docs.astral.sh/uv/).
-The following core versions were recorded from the original training
-environment on 2026-10-13:
 
 | Component | Version |
 | --- | --- |
@@ -17,8 +14,6 @@ environment on 2026-10-13:
 | NATTEN | 0.21.7+torch2130cu132 |
 | Safetensors | 0.8.0 |
 
-`diffusers` was not installed. SeerWorld uses the local LTX workspace packages
-under `packages/` instead of Diffusers pipelines.
 
 Create a clean environment from the repository root with:
 
@@ -27,6 +22,4 @@ uv sync --extra natten --python 3.10.20
 uv run python scripts/check_environment.py
 ```
 
-The CUDA 13.2 wheels are Linux-only and require a compatible NVIDIA driver.
-The environment check validates package/build versions and CUDA availability;
-it does not by itself reproduce an end-to-end training run.
+The environment check validates package/build versions and CUDA availability.

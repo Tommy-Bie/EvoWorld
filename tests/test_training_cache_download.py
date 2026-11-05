@@ -113,8 +113,8 @@ class TrainingCacheDownloadTests(unittest.TestCase):
             env = root / ".env.cache"
             write_cache_env(env, cache, force=False)
             text = env.read_text()
-            self.assertIn("CW_WORK=", text)
-            self.assertIn("CW_CONDITIONS=", text)
+            self.assertIn("EW_WORK=", text)
+            self.assertIn("EW_CONDITIONS=", text)
 
 
 if __name__ == "__main__":

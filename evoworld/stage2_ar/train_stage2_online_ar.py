@@ -1,15 +1,5 @@
 #!/usr/bin/env python
-"""Online one-hop AR-prefix LoRA SFT for SeerWorld.
-
-Each generated-prefix microbatch performs a fresh 8-step predecessor rollout
-with the *current* trainable SeerWorld adapter plus a frozen official distilled
-adapter.  The resulting four-latent prefix is detached, the distilled adapter
-is disabled, and the unchanged FlexibleStrategy computes target-only flow-
-matching loss against the GT revisit segment.
-
-This file is intentionally independent from the cached Stage-2 entrypoint and
-does not alter Stage-1 or the generic trainer.
-"""
+"""Stage-2 online autoregressive training for EvoWorld."""
 from __future__ import annotations
 
 import math
@@ -24,8 +14,8 @@ from peft import LoraConfig, set_peft_model_state_dict
 from safetensors.torch import load_file
 
 HERE = Path(__file__).resolve().parent
-SEERWORLD_SRC = HERE.parent
-sys.path[:0] = [str(SEERWORLD_SRC), str(HERE)]
+EVOWORLD_SRC = HERE.parent
+sys.path[:0] = [str(EVOWORLD_SRC), str(HERE)]
 
 from ltx_core.text_encoders.gemma import convert_to_additive_mask  # noqa: E402
 from ltx_trainer.config import LtxTrainerConfig  # noqa: E402
@@ -48,7 +38,6 @@ def _canonical_lora_state(path: str | Path, strength: float = 1.0) -> dict[str, 
     state: dict[str, torch.Tensor] = {}
     for key, value in raw.items():
         key = key.replace("diffusion_model.", "", 1)
-        # Accept checkpoints that were exported with an explicit adapter name.
         key = key.replace(".lora_A.default.", ".lora_A.")
         key = key.replace(".lora_B.default.", ".lora_B.")
         if key.endswith(".lora_A.weight") or key.endswith(".lora_B.weight"):
@@ -117,7 +106,6 @@ class OnlineARTrainer(LtxvTrainer):
                 "runtime adapter switching and default-only checkpoint export have not "
                 "been validated with FSDP/DeepSpeed-style parameter wrappers"
             )
-        # Parent installs the trainable/default Stage-2 adapter.
         super()._collect_trainable_params()
         self._install_frozen_distilled_adapter()
         self._activate_adapters([DEFAULT_ADAPTER], training=True)
@@ -152,12 +140,6 @@ class OnlineARTrainer(LtxvTrainer):
             init_lora_weights=True,
         )
         self._transformer.add_adapter(DISTILLED_ADAPTER, config)
-        # Match LtxvTrainer._load_lora_checkpoint exactly: PEFT's exported
-        # checkpoints use keys relative to the wrapped LTX base model (for
-        # example ``adaln_single...lora_A.weight``), not keys prefixed with
-        # ``base_model.model`` for the outer PeftModel.  Passing the outer
-        # wrapper makes otherwise valid official AdaLN/timestep LoRA tensors
-        # show up as ``unexpected_keys`` after PEFT inserts the adapter name.
         base_model = self._transformer.get_base_model()
         incompatible = set_peft_model_state_dict(
             base_model,
@@ -168,8 +150,6 @@ class OnlineARTrainer(LtxvTrainer):
         if unexpected:
             raise RuntimeError(f"unexpected distilled LoRA keys: {unexpected[:8]}")
 
-        # Verify every injected adapter tensor exists, no unintended suffix
-        # match injected an extra module, and every value was loaded exactly.
         modules = dict(self._transformer.get_base_model().named_modules())
         actual_targets = {
             name for name, module in modules.items()
@@ -250,11 +230,6 @@ class OnlineARTrainer(LtxvTrainer):
         if unknown:
             raise RuntimeError(f"cannot activate unknown PEFT adapters: {unknown}")
 
-        # PeftModel.set_adapter() accepts only one adapter in the PEFT version
-        # used by the verified training environment. The wrapped BaseTuner (LoraModel)
-        # provides the actual multi-adapter API and accepts a list.  Calling
-        # it directly is also what PeftModel.set_adapter delegates to for the
-        # single-adapter case.
         tuner = getattr(model, "base_model", None)
         if tuner is None or not hasattr(tuner, "set_adapter"):
             raise RuntimeError("PEFT model has no BaseTuner.set_adapter API")
@@ -265,11 +240,6 @@ class OnlineARTrainer(LtxvTrainer):
                 f"active={model.active_adapters}"
             )
 
-        # Audit the state that LoRA layers use in forward(), rather than only
-        # trusting the wrapper-level property.  A layer need not contain both
-        # adapters (the task LoRA is video-only while the official distilled
-        # LoRA also covers AdaLN/audio modules), so compare after intersecting
-        # with the adapters actually installed on that layer.
         activated_counts = {name: 0 for name in adapters}
         for module_name, module in model.named_modules():
             if not hasattr(module, "lora_A"):
@@ -292,8 +262,6 @@ class OnlineARTrainer(LtxvTrainer):
         if missing_active:
             raise RuntimeError(f"PEFT adapters active in no LoRA layers: {missing_active}")
 
-        # PEFT's set_adapter may mark every selected adapter trainable.  Restore
-        # the invariant explicitly after every switch.
         for name, parameter in model.named_parameters():
             if "lora_" not in name:
                 continue
@@ -362,8 +330,6 @@ class OnlineARTrainer(LtxvTrainer):
             latent_idx=0,
         ).apply_to(state, tools)
 
-        # The predecessor is an event/non-revisit chunk, so IAA is deliberately
-        # not applied here.  IAA remains active in the revisit FM update below.
         rank = int(os.environ.get("RANK", os.environ.get("LOCAL_RANK", "0")))
         rollout_seed = self._online_rollout_seed + rank * 10_000_000 + self._online_rollout_calls
         self._online_rollout_calls += 1
@@ -373,8 +339,6 @@ class OnlineARTrainer(LtxvTrainer):
 
         self._activate_adapters([DEFAULT_ADAPTER, DISTILLED_ADAPTER], training=False)
         try:
-            # Same Euler loop as the official sampler, written inline only to
-            # avoid spawning thousands of tqdm bars during training.
             sigmas = DISTILLED_SIGMAS.to(device=device, dtype=torch.float32)
             stepper = EulerDiffusionStep()
             transformer = X0Model(self._transformer)
@@ -386,8 +350,6 @@ class OnlineARTrainer(LtxvTrainer):
             generated = tools.unpatchify(tools.clear_conditioning(output)).latent
             prefix = generated[:, :, -PREFIX_LAT:].detach().contiguous()
         finally:
-            # FM is evaluated against the original continuous vector field;
-            # the official few-step adapter is rollout-only and stays frozen.
             self._activate_adapters([DEFAULT_ADAPTER], training=True)
         if prefix.requires_grad or prefix.grad_fn is not None:
             raise RuntimeError("online AR prefix must be detached")
@@ -403,9 +365,6 @@ class OnlineARTrainer(LtxvTrainer):
         if "online_ar_seed" not in batch or "online_ar_conditions" not in batch:
             raise RuntimeError("online Stage-2 entry lacks synchronized rollout inputs")
 
-        # This rollout is executed on every rank for every microbatch, even for
-        # GT rehearsal rows.  Equal wrapped-forward counts are mandatory for
-        # DDP/FSDP; GT rows simply discard the detached result below.
         prefix = self._rollout_predecessor(batch).clone()
         if use_online:
             window = batch["video_latents"]["latents"]
@@ -430,9 +389,6 @@ class OnlineARTrainer(LtxvTrainer):
         return super()._training_step(batch)
 
     def train(self, *args, **kwargs):
-        # Checkpoints are written only at optimization-step boundaries.  Resume
-        # the rollout RNG stream after exactly the completed microbatches rather
-        # than replaying seeds from step zero.
         initial_step, _ = self._resume_state
         self._online_rollout_calls = (
             int(initial_step) * self._config.optimization.gradient_accumulation_steps
@@ -440,9 +396,6 @@ class OnlineARTrainer(LtxvTrainer):
         return super().train(*args, **kwargs)
 
     def _save_checkpoint(self):
-        # Parent get_peft_model_state_dict() defaults to adapter="default".
-        # Select it explicitly before the collective and fail if a future PEFT
-        # change ever serializes the frozen rollout adapter as well.
         self._activate_adapters([DEFAULT_ADAPTER], training=True)
         saved = super()._save_checkpoint()
         if saved is not None:
@@ -466,10 +419,10 @@ def main(
     stage1_lora: str = typer.Option(...),
     distilled_lora: str = typer.Option(...),
     distilled_strength: float = typer.Option(1.0),
-    work: str = typer.Option(lambda: os.environ.get("CW_WORK", "")),
-    latents: str = typer.Option(lambda: os.environ.get("CW_LATENTS", "")),
-    conditions: str = typer.Option(lambda: os.environ.get("CW_CONDITIONS", "")),
-    reference: str = typer.Option(lambda: os.environ.get("CW_REFERENCE", "")),
+    work: str = typer.Option(lambda: os.environ.get("EW_WORK", "")),
+    latents: str = typer.Option(lambda: os.environ.get("EW_LATENTS", "")),
+    conditions: str = typer.Option(lambda: os.environ.get("EW_CONDITIONS", "")),
+    reference: str = typer.Option(lambda: os.environ.get("EW_REFERENCE", "")),
     max_samples: int = typer.Option(2048),
     gt_mix_ratio: float = typer.Option(0.25),
     rollout_seed: int = typer.Option(42000),
@@ -515,13 +468,13 @@ def main(
         raise typer.BadParameter("online Stage-2 requires batch_size=1")
     if cfg.acceleration.quantization is not None or cfg.training_strategy.audio is not None:
         raise typer.BadParameter("online Stage-2 requires video-only bf16/no-quantization training")
-    if int(os.environ.get("CW_USE_IAA", "0") or 0) != 1:
-        raise typer.BadParameter("online Stage-2 requires CW_USE_IAA=1")
-    if int(os.environ.get("CW_IAA_ENTITY_REFS", "2") or 2) != 2:
+    if int(os.environ.get("EW_USE_IAA", "0") or 0) != 1:
+        raise typer.BadParameter("online Stage-2 requires EW_USE_IAA=1")
+    if int(os.environ.get("EW_IAA_ENTITY_REFS", "2") or 2) != 2:
         raise typer.BadParameter("online Stage-2 requires head-2 entity references")
-    beta = float(os.environ.get("CW_IAA_BETA", "3.0") or 3.0)
+    beta = float(os.environ.get("EW_IAA_BETA", "3.0") or 3.0)
     if not math.isfinite(beta) or beta < 0:
-        raise typer.BadParameter(f"invalid CW_IAA_BETA={beta}")
+        raise typer.BadParameter(f"invalid EW_IAA_BETA={beta}")
 
     lora_cfg = raw.get("lora") or {}
     if int(lora_cfg.get("rank", -1)) != 128 or int(lora_cfg.get("alpha", -2)) != 128:
@@ -578,8 +531,6 @@ def main(
     if online_probe["online_ar_meta"]["seg"] != online_probe["online_ar_meta"]["target_seg"] - 1:
         raise typer.BadParameter("predecessor prompt is not from target_seg-1")
 
-    # Audit several real tensor tuples.  The dataset may add rollout inputs but
-    # must not modify the Stage-1 FM target, entity reference, or target prompt.
     audit_positions = sorted(set(
         round(i * (len(ds.entries) - 1) / 7)
         for i in range(min(8, len(ds.entries)))
@@ -636,9 +587,6 @@ def main(
         rollout_seed=rollout_seed,
     )
     if runtime_probe_only:
-        # Force every rank to receive an online revisit row so this one-batch
-        # probe exercises prefix replacement and revisit-only IAA, not merely
-        # the synchronized dummy rollout of a GT rehearsal row.
         ds.entries = ds.entries[:ds.num_online]
     trainer._dataset = ds  # noqa: SLF001
     effective_batch = cfg.optimization.gradient_accumulation_steps * int(os.environ.get("WORLD_SIZE", "1"))

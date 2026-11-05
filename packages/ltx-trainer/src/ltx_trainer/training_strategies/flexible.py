@@ -1,15 +1,4 @@
-"""Flexible training strategy for a unified conditioning framework.
-
-Modified by the SeerWorld authors from the LTX-2 upstream implementation to
-support SeerWorld's identity-anchored attention and training configuration.
-
-This strategy implements the Unified Conditioning Framework that supports:
-- Simple fine-tuning with text conditioning (text-to-video/audio)
-- Intrinsic conditioning (first_frame, prefix, suffix, spatial_crop, mask)
-- Extrinsic conditioning (concatenation-based, IC-LoRA style)
-The flexible strategy replaces TextToVideoStrategy and VideoToVideoStrategy by expressing
-all conditioning scenarios through configuration rather than code.
-"""
+"""Flexible conditioning strategy used by EvoWorld training."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -37,7 +26,6 @@ _IAA_LAYOUT_LOGGED = False
 
 
 class IntrinsicConditionBase(BaseModel):
-    """Base for intrinsic conditioning — tokens get clean latents, timestep=0, no loss."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -50,13 +38,11 @@ class IntrinsicConditionBase(BaseModel):
 
 
 class FirstFrameConditionConfig(IntrinsicConditionBase):
-    """First frame conditioning — frame 0 is clean, excluded from loss."""
 
     type: Literal["first_frame"] = "first_frame"
 
 
 class PrefixConditionConfig(IntrinsicConditionBase):
-    """Prefix conditioning — first N temporal units are clean, excluded from loss."""
 
     type: Literal["prefix"] = "prefix"
     temporal_boundary: int = Field(
@@ -68,7 +54,6 @@ class PrefixConditionConfig(IntrinsicConditionBase):
 
 
 class SuffixConditionConfig(IntrinsicConditionBase):
-    """Suffix conditioning — last N temporal units are clean, excluded from loss."""
 
     type: Literal["suffix"] = "suffix"
     temporal_boundary: int = Field(
@@ -80,7 +65,6 @@ class SuffixConditionConfig(IntrinsicConditionBase):
 
 
 class SpatialCropConditionConfig(IntrinsicConditionBase):
-    """Spatial crop conditioning — rectangular pixel region is clean, excluded from loss."""
 
     type: Literal["spatial_crop"] = "spatial_crop"
     spatial_region: tuple[int, int, int, int] = Field(
@@ -90,7 +74,6 @@ class SpatialCropConditionConfig(IntrinsicConditionBase):
 
 
 class MaskConditionConfig(IntrinsicConditionBase):
-    """Mask conditioning — per-sample binary mask determines conditioning tokens."""
 
     type: Literal["mask"] = "mask"
     mask_dir: str = Field(
@@ -100,11 +83,6 @@ class MaskConditionConfig(IntrinsicConditionBase):
 
 
 class ReferenceConditionConfig(BaseModel):
-    """Reference conditioning (IC-LoRA style concatenation).
-    External reference latents are concatenated to the target sequence.
-    Reference tokens are clean (timestep=0), excluded from loss, and
-    participate in bidirectional self-attention.
-    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -128,7 +106,6 @@ ConditionConfig = Annotated[
 
 
 class ModalityConfig(BaseModel):
-    """Configuration for a single modality (video or audio)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -149,12 +126,6 @@ class ModalityConfig(BaseModel):
 
 
 class FlexibleStrategyConfig(TrainingStrategyConfigBase):
-    """Configuration for the flexible training strategy.
-    This strategy supports all conditioning scenarios through configuration:
-    - Text-to-video/audio with simple fine-tuning
-    - Intrinsic conditioning like first-frame, extension, outpainting
-    - Reference conditioning like IC-LoRA (concatenation-based reference)
-    """
 
     name: Literal["flexible"] = "flexible"
 
@@ -170,7 +141,6 @@ class FlexibleStrategyConfig(TrainingStrategyConfigBase):
 
     @model_validator(mode="after")
     def validate_at_least_one_generated(self) -> "FlexibleStrategyConfig":
-        """Ensure at least one modality has is_generated=true."""
         has_video_target = self.video is not None and self.video.is_generated
         has_audio_target = self.audio is not None and self.audio.is_generated
         if not has_video_target and not has_audio_target:
@@ -179,7 +149,6 @@ class FlexibleStrategyConfig(TrainingStrategyConfigBase):
 
     @model_validator(mode="after")
     def validate_audio_intrinsic_regions(self) -> "FlexibleStrategyConfig":
-        """Reject video-only intrinsic regions on the audio modality."""
         if self.audio is None:
             return self
         for cond in self.audio.conditions:
@@ -191,10 +160,6 @@ class FlexibleStrategyConfig(TrainingStrategyConfigBase):
         return self
 
     def get_data_sources(self) -> dict[str, str]:
-        """Dynamically determine required data sources from config.
-        Returns a mapping of directory name (under ``preprocessed_data_root``) to
-        the dataset output key.
-        """
         sources: dict[str, str] = {"conditions": "conditions"}
 
         if self.video is not None:
@@ -221,7 +186,6 @@ class FlexibleStrategyConfig(TrainingStrategyConfigBase):
 
 @dataclass
 class ModalityProcessingResult:
-    """Result of processing a single modality."""
 
     modality: Modality
     targets: Tensor | None
@@ -230,7 +194,6 @@ class ModalityProcessingResult:
 
 @dataclass
 class LatentData:
-    """Loaded and patchified latents with metadata."""
 
     latents: Tensor  # [B, seq_len, C]
     num_frames: int
@@ -245,36 +208,26 @@ class LatentData:
 
 
 class FlexibleStrategy(TrainingStrategy):
-    """Unified training strategy supporting all conditioning scenarios.
-    This strategy implements the Unified Conditioning Framework, allowing
-    any training scenario to be expressed through configuration.
-    """
 
     config: FlexibleStrategyConfig
 
     def __init__(self, config: FlexibleStrategyConfig):
-        """Initialize strategy with configuration.
-        Args:
-            config: Flexible strategy configuration
-        """
         super().__init__(config)
         self.config = config
         self.reference_spatial_scale_factor, self.reference_temporal_scale_factor = (
             self._infer_reference_scale_factors_from_config()
         )
-        # ★ I2V-START 开关（方案 A）：第一段窗口（每 clip 的第一条，w=0）改用"仅首帧 condition"
-        # 于是该样本的 prefix 边界从 temporal_boundary(4) 降成 1。默认关（0），原路径逐字不变。
-        # 走环境变量而非 config：和 prefix_noise/oversample_revisit 一致，避免动 config 结构。
+
+
         import os as _os
-        self._i2v_start = int(_os.environ.get("CW_I2V_START", "0") or 0)
-        self._i2v_oversample = int(_os.environ.get("CW_I2V_OVERSAMPLE", "1") or 1)
+        self._i2v_start = int(_os.environ.get("EW_I2V_START", "0") or 0)
+        self._i2v_oversample = int(_os.environ.get("EW_I2V_OVERSAMPLE", "1") or 1)
 
     def prepare_training_inputs(
         self,
         batch: dict[str, Any],
         timestep_sampler: TimestepSampler,
     ) -> ModelInputs:
-        """Prepare training inputs by processing video and audio modalities."""
         video_result = self._process_modality(self.config.video, batch, "video", timestep_sampler)
         audio_result = self._process_modality(self.config.audio, batch, "audio", timestep_sampler)
 
@@ -293,7 +246,6 @@ class FlexibleStrategy(TrainingStrategy):
         audio_pred: Tensor | None,
         inputs: ModelInputs,
     ) -> Tensor:
-        """Compute masked MSE loss for video and audio predictions. Returns [B,]."""
         total_loss = None
 
         if video_pred is not None and inputs.video_targets is not None:
@@ -318,7 +270,6 @@ class FlexibleStrategy(TrainingStrategy):
         return total_loss
 
     def get_checkpoint_metadata(self) -> dict[str, Any]:
-        """Include reference scale factors in checkpoint metadata for inference pipelines."""
         metadata: dict[str, Any] = {}
         spatial = self.reference_spatial_scale_factor
         temporal = self.reference_temporal_scale_factor
@@ -330,7 +281,6 @@ class FlexibleStrategy(TrainingStrategy):
         return metadata
 
     def _infer_reference_scale_factors_from_config(self) -> tuple[int | None, int | None]:
-        """Infer spatial and temporal scale factors by peeking at one sample pair."""
         if self.config.video is None:
             return None, None
         for cond in self.config.video.conditions:
@@ -366,7 +316,6 @@ class FlexibleStrategy(TrainingStrategy):
         modality_key: str,
         timestep_sampler: TimestepSampler,
     ) -> ModalityProcessingResult | None:
-        """Process a single modality: load latents, add noise, apply conditions, build Modality."""
         if modality_config is None:
             return None
 
@@ -440,30 +389,20 @@ class FlexibleStrategy(TrainingStrategy):
                     modality_key=modality_key,
                 )
 
-        # ── IAA (Identity-Anchored Attention) —— 完全开关式 ───────────────────────
-        # 只有 CW_USE_IAA=1 且模态是 video 且 batch 里有 is_revisit 掩码时才生效。
-        # 默认 CW_USE_IAA=0 → self_attn_mask = None → 走原 unmasked fast path，
-        # 与 IAA 加入前 100% 等价（无任何显存/速度影响）。
-        #
-        # IAA 会：(a) 构造一个全 1 的 self_attn_mask (B, T, T)；(b) 对 is_revisit=1
-        # 样本的 (target rows, first N_sink cols) 位置乘 e^β。训练的 reference condition
-        # 是 prepend：[entity reference | target window]，不能使用推理端 append 布局的末尾列。
+
         # Modality.attention_mask
-        # 会导致 Attention.forward 自动切到 masked_attention_function (SDPA)，比 FA3
-        # 慢，但获得可控 log-bias 注入的能力。
-        # 详细实现见 seerworld/iaa_utils.py。
+
+
         self_attn_mask = None
         if modality_key == "video":
-            import os as _os_iaa  # local import：只在 IAA 分支需要，不污染模块顶部
-            if int(_os_iaa.environ.get("CW_USE_IAA", "0") or 0) != 0:
+            import os as _os_iaa
+            if int(_os_iaa.environ.get("EW_USE_IAA", "0") or 0) != 0:
                 self_attn_mask = self._build_iaa_mask(
                     batch=batch,
                     seq_len=noisy_latents.shape[1],
                     target_window_seq_len=seq_len,
                     loss_mask=loss_mask,
-                    # LatentData.height/width are already latent-grid dimensions
-                    # (process_videos stores 16x28 for 512x896). Do NOT divide by
-                    # the VAE stride again. Inference starts from pixel H/W and does /32.
+                    # Height and width are already expressed on the latent grid.
                     h_pat=data.height,
                     w_pat=data.width,
                     device=noisy_latents.device,
@@ -499,22 +438,6 @@ class FlexibleStrategy(TrainingStrategy):
         device,
         dtype,
     ) -> Tensor | None:
-        """Identity-Anchored Attention 的训练侧 mask 构造。
-
-        为 revisit 样本构造一个 (B, T, T) 的 attention mask，在 (target rows, sink cols) 位置
-        乘 e^β；其余位置 = 1（无 log-bias）。训练序列由 `_apply_reference_condition`
-        拼成 `[entity reference | target window]`，所以 sink 是最前 N_sink 列，target query
-        是其后的行。推理端使用 append 布局，索引不同，见 iaa_utils.py。
-
-        参数从环境变量读（默认见 iaa_utils._iaa_config）：
-          CW_USE_IAA=1 时本函数才被调用（caller 已检查）
-          CW_IAA_BETA          log-bias 强度（默认 3.0）
-          CW_IAA_ENTITY_REFS   entity ref 有几个 latent（默认 2，对应 head-2）
-
-        Returns:
-          (B, T, T) float tensor with values in [0, e^β]，或 None（batch 里没有 revisit 样本，
-          此时不建 mask，走原 unmasked fast path）。
-        """
         global _IAA_LAYOUT_LOGGED
         import math as _math
         import os as _os_iaa
@@ -524,26 +447,23 @@ class FlexibleStrategy(TrainingStrategy):
         if not isinstance(is_revisit, torch.Tensor):
             is_revisit = torch.as_tensor(is_revisit, device=device)
         if is_revisit.sum().item() == 0:
-            return None                          # 本 batch 无 revisit 样本 → 不建 mask
+            return None
 
-        beta = float(_os_iaa.environ.get("CW_IAA_BETA", "3.0") or 3.0)
-        n_entity_refs = int(_os_iaa.environ.get("CW_IAA_ENTITY_REFS", "2") or 2)
-        # patch_size=1 默认；每 latent = h_pat*w_pat tokens
+        beta = float(_os_iaa.environ.get("EW_IAA_BETA", "3.0") or 3.0)
+        n_entity_refs = int(_os_iaa.environ.get("EW_IAA_ENTITY_REFS", "2") or 2)
+
         n_sink = n_entity_refs * h_pat * w_pat
         if n_sink <= 0 or n_sink >= seq_len:
             raise RuntimeError(
                 f"invalid IAA entity sink: refs={n_entity_refs}, tokens={n_sink}, seq={seq_len}")
 
-        # Do not merely trust CW_IAA_ENTITY_REFS. Verify it against the sequence that
-        # _apply_reference_condition actually constructed. This catches v2v/i2v launchers
-        # using the wrong ref count and any accidental extra/missing reference condition.
         actual_reference_tokens = seq_len - target_window_seq_len
         if actual_reference_tokens != n_sink:
             raise RuntimeError(
                 "IAA reference length mismatch: "
                 f"combined={seq_len}, target_window={target_window_seq_len}, "
                 f"actual_ref_tokens={actual_reference_tokens}, configured_sink={n_sink} "
-                f"(CW_IAA_ENTITY_REFS={n_entity_refs})"
+                f"(EW_IAA_ENTITY_REFS={n_entity_refs})"
             )
 
         if loss_mask is None or loss_mask.shape != (is_revisit.shape[0], seq_len):
@@ -551,11 +471,6 @@ class FlexibleStrategy(TrainingStrategy):
                 f"IAA requires loss_mask [B,T]={is_revisit.shape[0], seq_len}, "
                 f"got {None if loss_mask is None else tuple(loss_mask.shape)}"
             )
-
-        # 单一 IAA entity reference 的训练布局固定为：
-        #   [entity reference (n_sink tokens) | target window]
-        # loss_mask=True 精确标识真正被去噪/参与 loss 的 target queries；这样 4 个 clean
-        # temporal-prefix latents 不会被误算成 target query，I2V 的可变 prefix 也自动正确。
         from iaa_utils import training_iaa_ranges
         (window_start, window_end), (ks, ke) = training_iaa_ranges(seq_len, n_sink)
 
@@ -588,7 +503,6 @@ class FlexibleStrategy(TrainingStrategy):
         latents: Tensor,
         timestep_sampler: TimestepSampler,
     ) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
-        """Add noise to latents and create training targets. Returns (noisy, targets, timesteps, mask, sigmas)."""
         batch_size, seq_len, _ = latents.shape
         sigmas = timestep_sampler.sample_for(latents)
         noise = torch.randn_like(latents)
@@ -610,14 +524,6 @@ class FlexibleStrategy(TrainingStrategy):
         width: int,
         batch: dict[str, Any],
     ) -> tuple[Tensor, Tensor, Tensor]:
-        """Apply intrinsic conditioning using a binary mask.
-        For each token, the mask value determines conditioning strength:
-        - mask=1: conditioned (clean latent, timestep=0, excluded from loss)
-        - mask=0: generated (noisy latent, original timestep, contributes to loss)
-        The conditioning decision is drawn independently per batch element so the training
-        signal across samples in a batch is i.i.d. -- a single batch-wide draw would
-        correlate gradient updates across the batch.
-        """
         batch_size, seq_len, _ = noisy_latents.shape
         device = noisy_latents.device
 
@@ -629,8 +535,8 @@ class FlexibleStrategy(TrainingStrategy):
         if isinstance(config, FirstFrameConditionConfig):
             mask = self._compute_temporal_mask(batch_size, seq_len, height, width, 1, False, device)
         elif isinstance(config, PrefixConditionConfig):
-            # ★ I2V-START：第一段窗口（w=0）改"仅首帧条件"，boundary 用 1 而非 temporal_boundary。
-            # 默认 gate 关（CW_I2V_START=0）→ mas 走原标量路径，逐字不变。开时才逐样本算边界。
+
+
             if self._i2v_start:
                 fps = self._i2v_start_frames(batch, batch_size, config.temporal_boundary)
                 if fps is not None:
@@ -669,9 +575,6 @@ class FlexibleStrategy(TrainingStrategy):
         return noisy_latents, timesteps, loss_mask
 
     def _i2v_start_frames(self, batch, batch_size, default_frames):
-        """I2V-START：返回每个样本的 prefix 帧数（list[int]），win==0 的样本用 1（首帧 condition），
-        其余用 default_frames(4)。batch["meta"] 经 default collate 是 list[dict]（batch=1 一个元素）。
-        拿不到 meta / 对不上 batch / 没有任何首帧窗口 → 返回 None（调用方走原 scalar 路径）。"""
         metas = batch.get("meta")
         if isinstance(metas, dict):
             metas = [metas]
@@ -684,11 +587,11 @@ class FlexibleStrategy(TrainingStrategy):
             elif isinstance(m, dict) and "win" in m:
                 per_first.append(int(m["win"]) == 0)
             else:
-                return None                          # meta 结构不符 → 保守回退
+                return None
         if len(per_first) != batch_size:
             return None
         if not any(per_first):
-            return None                              # 本 batch 无首帧窗口 → 原路径
+            return None
         return [1 if f else default_frames for f in per_first]
 
     @staticmethod
@@ -701,12 +604,10 @@ class FlexibleStrategy(TrainingStrategy):
         from_end: bool,
         device: torch.device,
     ) -> Tensor:
-        """Compute float mask for temporal region (prefix or suffix). Returns [B, seq_len] in {0, 1}.
-        num_frames 可为 int（全 batch 统一）或 per-sample list[int]（I2V-START 下首帧窗口用 1）。"""
         tokens_per_frame = height * width
         mask = torch.zeros(batch_size, seq_len, device=device)
         if isinstance(num_frames, (list, tuple)):
-            # all-same fast path ≙ scalar 原路径；有差异才逐样本填。
+
             if len(set(num_frames)) == 1:
                 nt = num_frames[0] * tokens_per_frame
                 if from_end:
@@ -738,9 +639,6 @@ class FlexibleStrategy(TrainingStrategy):
         device: torch.device,
         scale_factors: SpatioTemporalScaleFactors,
     ) -> Tensor:
-        """Compute float mask for spatial crop region (y1, x1, y2, x2) in pixel coords.
-        Returns [B, seq_len] in {0, 1}.
-        """
         y1, x1, y2, x2 = region
         num_frames = seq_len // (height * width)
 
@@ -761,7 +659,6 @@ class FlexibleStrategy(TrainingStrategy):
         return full_mask.unsqueeze(0).expand(batch_size, -1)
 
     def _patchify_latent_data(self, latent_data: dict[str, Any], modality_key: str) -> LatentData:
-        """Patchify latent data and extract metadata."""
         latents = latent_data["latents"]
 
         if modality_key == "video":
@@ -793,12 +690,6 @@ class FlexibleStrategy(TrainingStrategy):
         config: ReferenceConditionConfig,
         modality_key: str,
     ) -> tuple[Tensor, Tensor, Tensor, Tensor | None, Tensor | None]:
-        """Concatenate reference latents to target sequence for reference conditioning (IC-LoRA style).
-        The apply/skip decision is batch-wide (reference conditioning changes the sequence
-        length, so it cannot be applied to only part of a batch) but is drawn from the torch
-        RNG so runs are reproducible under ``torch.manual_seed`` — mirroring the intrinsic
-        per-sample draw rather than Python's unseeded ``random``.
-        """
         if torch.rand((), device=noisy_latents.device).item() >= config.probability:
             return noisy_latents, positions, timesteps, loss_mask, targets
 
@@ -862,7 +753,6 @@ class FlexibleStrategy(TrainingStrategy):
 
     @staticmethod
     def _compute_modality_loss(pred: Tensor, targets: Tensor, loss_mask: Tensor) -> Tensor:
-        """Compute per-element MSE loss for a single modality. Returns [B,]."""
         # Slice prediction to match targets length (removes any prepended condition tokens)
         target_len = targets.shape[1]
         pred = pred[:, -target_len:, :]
@@ -876,7 +766,6 @@ class FlexibleStrategy(TrainingStrategy):
 
     @staticmethod
     def _infer_scale_factor(cond_height: int, cond_width: int, target_height: int, target_width: int) -> int:
-        """Infer spatial scale factor between condition and target resolutions."""
         if target_height == cond_height and target_width == cond_width:
             return 1
         scale_h = target_height // cond_height if cond_height > 0 else 1
@@ -890,11 +779,6 @@ class FlexibleStrategy(TrainingStrategy):
 
     @staticmethod
     def _infer_temporal_scale_factor(cond_num_frames: int, target_num_frames: int) -> int:
-        """Infer temporal scale factor between condition and target latent frame counts.
-        The first latent frame encodes a single pixel frame (the VAE's causal structure),
-        so the temporal groups count is (num_frames - 1).  The scale factor is the ratio
-        of target groups to condition groups.
-        """
         if target_num_frames == cond_num_frames:
             return 1
         target_groups = target_num_frames - 1

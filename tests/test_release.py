@@ -10,8 +10,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "scripts"), str(ROOT / "seerworld"),
-               str(ROOT / "seerworld/stage2_ar")]
+sys.path[:0] = [str(ROOT / "scripts"), str(ROOT / "evoworld"),
+               str(ROOT / "evoworld/stage2_ar")]
 
 import yaml
 from configure import expand
@@ -22,8 +22,8 @@ from selection import select_pairs
 
 class ReleaseTest(unittest.TestCase):
     def test_portable_config_resolution(self) -> None:
-        names = ("CW_CKPT", "CW_GEMMA", "CW_VIDEO_VAE", "CW_AUDIO_VAE",
-                 "CW_DATA", "CW_OUTPUT_ROOT")
+        names = ("EW_CKPT", "EW_GEMMA", "EW_VIDEO_VAE", "EW_AUDIO_VAE",
+                 "EW_DATA", "EW_OUTPUT_ROOT")
         with patch.dict(os.environ, {name: "/example/" + name.lower() for name in names}, clear=True):
             cfg = expand(yaml.safe_load((ROOT / "configs/stage1.yaml").read_text()))
         self.assertNotIn("${", yaml.safe_dump(cfg))
@@ -35,8 +35,8 @@ class ReleaseTest(unittest.TestCase):
 
     def test_missing_environment_is_rejected(self) -> None:
         with patch.dict(os.environ, {}, clear=True):
-            with self.assertRaisesRegex(ValueError, "CW_CKPT"):
-                expand("${CW_CKPT}")
+            with self.assertRaisesRegex(ValueError, "EW_CKPT"):
+                expand("${EW_CKPT}")
 
     def test_online_pairs_from_synthetic_metadata(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -61,11 +61,11 @@ class ReleaseTest(unittest.TestCase):
                 self.assertEqual(predecessor["win"] + TARGET_LAT, target["win"])
 
     def test_stage1_smoke_config_is_short_and_isolated(self) -> None:
-        names = ("CW_CKPT", "CW_GEMMA", "CW_VIDEO_VAE", "CW_AUDIO_VAE",
-                 "CW_DATA", "CW_OUTPUT_ROOT")
+        names = ("EW_CKPT", "EW_GEMMA", "EW_VIDEO_VAE", "EW_AUDIO_VAE",
+                 "EW_DATA", "EW_OUTPUT_ROOT")
         with patch.dict(os.environ, {name: "/example/" + name.lower() for name in names}, clear=True):
             config = expand(yaml.safe_load((ROOT / "configs/stage1.yaml").read_text()))
-        output_dir = Path("/tmp/seerworld_stage1_smoke_test_iaafix")
+        output_dir = Path("/tmp/evoworld_stage1_smoke_test_iaafix")
         smoke = derive_smoke_config(config, output_dir, steps=2)
         self.assertEqual(smoke["optimization"]["steps"], 2)
         self.assertEqual(smoke["optimization"]["gradient_accumulation_steps"], 1)
