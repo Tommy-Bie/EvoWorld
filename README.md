@@ -21,11 +21,9 @@ event-triggered world evolution, subject and scene revisitation, and
 out-of-sight dynamics rendering.
 
 <p align="center">
-  <video
-    src="assets/videos/vlm-rollout-demo.mp4"
-    poster="assets/posters/vlm-rollout-demo.jpg"
-    controls muted loop playsinline width="100%">
-  </video>
+  <a href="assets/videos/vlm-rollout-demo.mp4">
+    <img src="assets/posters/vlm-rollout-demo.jpg" alt="EvoWorld demo video" width="100%">
+  </a>
 </p>
 
 ## 🛠️ Installation
