@@ -3,6 +3,28 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+fail() { echo "ERROR: $*" >&2; exit 1; }
+
+MODE=run
+CASE_FILTER="${EW_DEMO_CASE:-}"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --case)
+      shift
+      [ "$#" -gt 0 ] || fail "--case requires a clip ID"
+      CASE_FILTER="$1"
+      ;;
+    --check-only) MODE=check ;;
+    --preflight-only) MODE=preflight ;;
+    -h|--help)
+      echo "Usage: $0 [--case CLIP_ID] [--check-only|--preflight-only]"
+      exit 0
+      ;;
+    *) fail "unknown argument: $1" ;;
+  esac
+  shift
+done
+
 SPEC="$ROOT/examples/prompts"
 CASES="${EW_DEMO_CASES:-$SPEC/cases.jsonl}"
 PROMPTS="${EW_DEMO_PROMPTS:-$SPEC/reasoning_prompts.jsonl}"
@@ -20,7 +42,6 @@ fi
 PY="${EW_PYTHON:-$ROOT/.venv/bin/python}"
 GPU_LIST="${EW_DEMO_GPUS:-0 1 2 3 4 5}"
 
-fail() { echo "ERROR: $*" >&2; exit 1; }
 [ -x "$PY" ] || fail "Python not found: $PY (run uv sync or set EW_PYTHON)"
 
 export EW_LTX_ROOT="${EW_LTX_ROOT:-$ROOT/models/ltx-2.5}"
@@ -37,11 +58,23 @@ for gpu in "${GPUS[@]}"; do
 done
 
 mkdir -p "$WORK_DIR" "$LATENTS" "$OUT_ROOT"
-"$PY" "$ROOT/scripts/prepare_inference_examples.py" \
-  --cases "$CASES" --prompts "$PROMPTS" \
+prepare_args=(
+  --cases "$CASES" --prompts "$PROMPTS"
   --image-root "$IMAGE_ROOT" --work-dir "$WORK_DIR"
+)
+[ -z "$CASE_FILTER" ] || prepare_args+=(--case "$CASE_FILTER")
+"$PY" "$ROOT/scripts/prepare_inference_examples.py" "${prepare_args[@]}"
 
-if [ "${1:-}" = "--preflight-only" ]; then
+CLIPS=()
+while IFS= read -r clip; do
+  if [ -z "$CASE_FILTER" ] || [ "$clip" = "$CASE_FILTER" ]; then
+    CLIPS+=("$clip")
+  fi
+done < <("$PY" -c 'import json,sys; [print(json.loads(x)["clip_id"]) for x in open(sys.argv[1], encoding="utf-8") if x.strip()]' "$CASES")
+[ "${#CLIPS[@]}" -gt 0 ] || fail "example case not found: $CASE_FILTER"
+[ "${#GPUS[@]}" -ge "${#CLIPS[@]}" ] || fail "need ${#CLIPS[@]} GPU indices; got ${#GPUS[@]}"
+
+if [ "$MODE" = "preflight" ]; then
   echo "PASS: example specification is valid; GPU inference was not started"
   exit 0
 fi
@@ -75,15 +108,15 @@ print(f"[examples] live VLM ready: {url}")
 PY
 fi
 
-if [ "${1:-}" = "--check-only" ]; then
+if [ "$MODE" = "check" ]; then
   echo "PASS: all example inputs, weights, and requested services are available"
   exit 0
 fi
 
 missing=0
-while IFS= read -r clip; do
+for clip in "${CLIPS[@]}"; do
   [ -s "$LATENTS/$clip.pt" ] || missing=$((missing + 1))
-done < <("$PY" -c 'import json,sys; [print(json.loads(x)["clip_id"]) for x in open(sys.argv[1], encoding="utf-8") if x.strip()]' "$CASES")
+done
 if [ "$missing" -gt 0 ]; then
   echo "[examples] encoding $missing missing first-frame latent(s) on GPU ${GPUS[0]}"
   (
@@ -101,9 +134,6 @@ export EW_USE_IAA=1 EW_IAA_STRICT=1 EW_IAA_BETA="${EW_IAA_BETA:-3.0}" EW_IAA_ENT
 export EW_VLM_RETRIEVE=0 EW_FORCE_CAPTIONS_PROMPT=0
 unset EW_REFERENCE EW_SCENE_REFERENCE
 
-CLIPS=()
-while IFS= read -r clip; do CLIPS+=("$clip"); done < <("$PY" -c 'import json,sys; [print(json.loads(x)["clip_id"]) for x in open(sys.argv[1], encoding="utf-8") if x.strip()]' "$CASES")
-[ "${#GPUS[@]}" -ge "${#CLIPS[@]}" ] || fail "need ${#CLIPS[@]} GPU indices; got ${#GPUS[@]}"
 LOG_DIR="$OUT_ROOT/_worker_logs"
 mkdir -p "$LOG_DIR"
 
@@ -152,5 +182,9 @@ done
 trap - INT TERM
 [ "$failed" -eq 0 ] || fail "$failed inference worker(s) failed"
 
-"$PY" -c 'import json,pathlib,sys; root=pathlib.Path(sys.argv[1]); cases=[json.loads(x) for x in open(sys.argv[2], encoding="utf-8") if x.strip()]; missing=[r["clip_id"] for r in cases if not (root / r["clip_id"].replace("/", "__") / "output.mp4").is_file()]; raise SystemExit(f"missing outputs: {missing}" if missing else 0)' "$OUT_ROOT" "$CASES"
+missing_outputs=()
+for clip in "${CLIPS[@]}"; do
+  [ -f "$OUT_ROOT/${clip//\//__}/output.mp4" ] || missing_outputs+=("$clip")
+done
+[ "${#missing_outputs[@]}" -eq 0 ] || fail "missing outputs: ${missing_outputs[*]}"
 echo "PASS: all ${#CLIPS[@]} EvoWorld example videos were generated"

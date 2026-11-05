@@ -41,6 +41,7 @@ def main() -> int:
     parser.add_argument("--prompts", type=Path, required=True)
     parser.add_argument("--image-root", type=Path, required=True)
     parser.add_argument("--work-dir", type=Path, required=True)
+    parser.add_argument("--case", dest="case_filter")
     args = parser.parse_args()
 
     cases_path = args.cases.resolve()
@@ -55,9 +56,13 @@ def main() -> int:
         missing = sorted(set(case_index) - set(prompt_index))
         extra = sorted(set(prompt_index) - set(case_index))
         raise ValueError(f"case/prompt mismatch: missing={missing}, extra={extra}")
+    if args.case_filter and args.case_filter not in case_index:
+        raise ValueError(f"example case not found: {args.case_filter}")
 
     image_rows = []
     for clip_id, row in case_index.items():
+        if args.case_filter and clip_id != args.case_filter:
+            continue
         for field in ("initial_prompt", "event_prompt", "first_frame"):
             if not str(row.get(field) or "").strip():
                 raise ValueError(f"{clip_id}: empty {field}")
@@ -89,7 +94,7 @@ def main() -> int:
         "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in image_rows),
         encoding="utf-8",
     )
-    print(f"PASS: {len(cases)} EvoWorld inference examples")
+    print(f"PASS: {len(image_rows)} EvoWorld inference example(s)")
     print(f"image manifest: {manifest}")
     return 0
 
