@@ -11,10 +11,5 @@ Apache-2.0 license does not replace or relax that agreement.
 
 Upstream project: https://github.com/Lightricks/LTX-2
 
-The following upstream files carry EvoWorld modifications in this release:
-
-- packages/ltx-trainer/src/ltx_trainer/training_strategies/flexible.py
-- packages/ltx-trainer/src/ltx_trainer/validation_runner.py
-
-Additional EvoWorld training and inference modules integrate with and extend
-the LTX-2 runtime.
+Modified upstream files carry modification notices in their source headers.
+Additional EvoWorld modules integrate with and extend the LTX-2 runtime.

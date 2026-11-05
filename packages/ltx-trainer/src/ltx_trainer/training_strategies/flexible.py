@@ -1,4 +1,4 @@
-"""Flexible conditioning strategy used by EvoWorld training."""
+"""Flexible conditioning strategy modified from LTX-2 for EvoWorld."""
 
 from dataclasses import dataclass
 from pathlib import Path

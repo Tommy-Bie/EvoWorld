@@ -156,5 +156,4 @@ the Lightricks team and the broader open-source video-generation community.
 Original EvoWorld code is released under the Apache License 2.0; see
 [LICENSE](LICENSE). Vendored or modified LTX-2 components under `packages/`,
 and EvoWorld components derived from LTX-2.x, remain subject to the
-[LTX-2.x Community License Agreement](licenses/LTX-LICENSE.md). See
-[NOTICE](NOTICE).
+[LTX-2.x Community License Agreement](licenses/LTX-LICENSE.md).
