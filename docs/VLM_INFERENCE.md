@@ -20,8 +20,8 @@ export EW_VLM_MODEL=Qwen3.8-27B
 export EW_VLM_THINKING=0
 
 EW_USE_LIVE_VLM=1 \
-EW_DEMO_GPUS="0 1 2 3 4 5" \
-bash scripts/infer_examples.sh
+EW_DEMO_GPUS="0" \
+bash scripts/infer_examples.sh --case media/example1
 ```
 
 The VLM observes the generated initial and event segments, records the entity

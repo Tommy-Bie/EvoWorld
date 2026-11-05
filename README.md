@@ -21,7 +21,7 @@ event-triggered world evolution, subject and scene revisitation, and
 out-of-sight dynamics rendering.
 
 <p align="center">
-  <a href="assets/videos/vlm-rollout-demo.mp4">
+  <a href="https://tommy-bie.github.io/projects/evoworld/assets/videos/vlm-rollout-demo.mp4">
     <img src="assets/posters/vlm-rollout-demo.jpg" alt="EvoWorld demo video" width="100%">
   </a>
 </p>
@@ -72,7 +72,7 @@ EW_DEMO_GPUS="0" bash scripts/infer_examples.sh \
 # Render one selected example on any available GPU.
 EW_DEMO_GPUS="0" bash scripts/infer_examples.sh --case media/example1
 
-# Render one example on each of six GPUs.
+# More examples.
 EW_DEMO_GPUS="0 1 2 3 4 5" bash scripts/infer_examples.sh
 ```
 
