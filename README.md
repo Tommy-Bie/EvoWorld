@@ -78,11 +78,12 @@ separate VLM service.
 ```bash
 source .env
 
-# Validate paths and weights without starting inference.
-EW_DEMO_GPUS="0 1 2 3 4 5" bash scripts/infer_examples.sh --check-only
+# Validate one example and its weights without starting inference.
+EW_DEMO_GPUS="0" bash scripts/infer_examples.sh \
+  --case media/example1 --check-only
 
 # Render one selected example on any available GPU.
-EW_DEMO_GPUS="3" bash scripts/infer_examples.sh --case media/example1
+EW_DEMO_GPUS="0" bash scripts/infer_examples.sh --case media/example1
 
 # Render one example on each of six GPUs.
 EW_DEMO_GPUS="0 1 2 3 4 5" bash scripts/infer_examples.sh
