@@ -6,6 +6,8 @@ PY="${EW_PYTHON:-$ROOT/.venv/bin/python}"
 ACCELERATE="${EW_ACCELERATE:-$ROOT/.venv/bin/accelerate}"
 [[ -x "$PY" ]] || { echo "Missing Python: $PY (run uv sync or set EW_PYTHON)" >&2; exit 1; }
 [[ -x "$ACCELERATE" ]] || { echo "Missing accelerate: $ACCELERATE (run uv sync or set EW_ACCELERATE)" >&2; exit 1; }
+source "$ROOT/scripts/setup_cuda_libraries.sh"
+setup_cuda_libraries "$PY"
 : "${EW_STAGE1_LORA:?Set EW_STAGE1_LORA to your Stage-1 checkpoint}"
 : "${EW_DISTILLED_LORA:?Set EW_DISTILLED_LORA to the official rollout adapter}"
 : "${EW_OUTPUT_ROOT:?Source your .env first}"

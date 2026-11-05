@@ -43,6 +43,8 @@ PY="${EW_PYTHON:-$ROOT/.venv/bin/python}"
 GPU_LIST="${EW_DEMO_GPUS:-0 1 2 3 4 5}"
 
 [ -x "$PY" ] || fail "Python not found: $PY (run uv sync or set EW_PYTHON)"
+source "$ROOT/scripts/setup_cuda_libraries.sh"
+setup_cuda_libraries "$PY"
 
 export EW_LTX_ROOT="${EW_LTX_ROOT:-$ROOT/models/EvoWorld}"
 export EW_CKPT="${EW_CKPT:-$EW_LTX_ROOT/diffusion_models/ltx-2.5-22b-dev-transformer-bf16.safetensors}"
@@ -78,13 +80,6 @@ if [ "$MODE" = "preflight" ]; then
   echo "PASS: example specification is valid; GPU inference was not started"
   exit 0
 fi
-
-PY_SITE="$($PY -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
-[ -d "$PY_SITE" ] || fail "cannot resolve site-packages for $PY: $PY_SITE"
-NVIDIA_LIBRARY_PATHS="$(find "$PY_SITE/nvidia" -mindepth 2 -maxdepth 2 -type d -name lib -print 2>/dev/null | sort | tr '\n' ':')"
-[ -n "$NVIDIA_LIBRARY_PATHS" ] || fail "no NVIDIA runtime libraries found under $PY_SITE/nvidia"
-[ -d "$PY_SITE/torch/lib" ] || fail "PyTorch library directory is missing: $PY_SITE/torch/lib"
-export LD_LIBRARY_PATH="${NVIDIA_LIBRARY_PATHS}${PY_SITE}/torch/lib:${LD_LIBRARY_PATH:-}"
 
 for name in EW_CKPT EW_GEMMA EW_VIDEO_VAE EW_DISTILLED_LORA EW_INFERENCE_LORA; do
   [ -n "${!name:-}" ] || fail "$name is not set"

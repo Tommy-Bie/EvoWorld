@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT"
+PY="${EW_PYTHON:-$ROOT/.venv/bin/python}"
+[[ -x "$PY" ]] || { echo "Missing Python: $PY (run uv sync or set EW_PYTHON)" >&2; exit 1; }
+source "$ROOT/scripts/setup_cuda_libraries.sh"
+setup_cuda_libraries "$PY"
 
 : "${EW_STAGE1_LORA:?Set EW_STAGE1_LORA to the checkpoint produced by smoke_stage1.sh}"
 : "${EW_DISTILLED_LORA:?Source .env first}"

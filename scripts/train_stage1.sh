@@ -6,6 +6,8 @@ PY="${EW_PYTHON:-$ROOT/.venv/bin/python}"
 ACCELERATE="${EW_ACCELERATE:-$ROOT/.venv/bin/accelerate}"
 [[ -x "$PY" ]] || { echo "Missing Python: $PY (run uv sync or set EW_PYTHON)" >&2; exit 1; }
 [[ -x "$ACCELERATE" ]] || { echo "Missing accelerate: $ACCELERATE (run uv sync or set EW_ACCELERATE)" >&2; exit 1; }
+source "$ROOT/scripts/setup_cuda_libraries.sh"
+setup_cuda_libraries "$PY"
 for name in EW_WORK EW_LATENTS EW_CONDITIONS EW_REFERENCE; do
   if [[ -z "${!name:-}" || ! -d "${!name}" ]]; then
     echo "Missing directory: $name (source your .env first)" >&2
