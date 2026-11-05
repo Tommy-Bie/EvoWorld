@@ -1,6 +1,6 @@
 <div align="center">
 
-# EvoWorld: Towards Out-of-Sight World Evolution in Generative Video Models
+<h1 align="center"><img src="assets/images/eye-globe.svg" alt="EvoWorld logo" height="42" valign="middle"> EvoWorld: Towards Out-of-Sight World Evolution in Generative Video Models</h1>
 
 [![Paper](https://img.shields.io/badge/Paper-arXiv-B31B1B?logo=arxiv&logoColor=white)](https://arxiv.org/abs/2611.06748)
 [![Project Page](https://img.shields.io/badge/Project-Page-0B2733?logo=googlechrome&logoColor=white)](https://tommy-bie.github.io/projects/evoworld/)
