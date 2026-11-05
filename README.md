@@ -18,7 +18,7 @@ out-of-sight world evolution. EvoWorld combines a VLM brain with a visual
 renderer, enabling off-screen entities to remain active participants in an
 evolving world. Within a bidirectional autoregressive paradigm, EvoWorld supports
 event-triggered world evolution, subject and scene revisitation, and
-out-of-sight dynamics rendering.
+out-of-sight dynamics rendering through VLM-guided reasoning.
 
 https://github.com/user-attachments/assets/dc2272fe-d9b4-4aed-b10e-3a47ffbbe0df
 
