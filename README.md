@@ -1,7 +1,3 @@
-
-
-https://github.com/user-attachments/assets/dc2272fe-d9b4-4aed-b10e-3a47ffbbe0df
-
 <div align="center">
 
 # EvoWorld: Towards Out-of-Sight World Evolution in Generative Video Models
@@ -24,7 +20,7 @@ evolving world. Within a bidirectional autoregressive paradigm, EvoWorld support
 event-triggered world evolution, subject and scene revisitation, and
 out-of-sight dynamics rendering.
 
-https://github.com/user-attachments/assets/1d27e970-8033-4372-92ac-8bbb1c2e1438
+https://github.com/user-attachments/assets/dc2272fe-d9b4-4aed-b10e-3a47ffbbe0df
 
 ## 🛠️ Installation
 
