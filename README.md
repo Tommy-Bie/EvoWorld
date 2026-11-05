@@ -22,8 +22,8 @@ out-of-sight dynamics rendering.
 
 <p align="center">
   <video
-    src="https://tommy-bie.github.io/projects/evoworld/assets/videos/vlm-rollout-demo.mp4"
-    poster="https://tommy-bie.github.io/projects/evoworld/assets/posters/vlm-rollout-demo.jpg"
+    src="assets/videos/vlm-rollout-demo.mp4"
+    poster="assets/posters/vlm-rollout-demo.jpg"
     controls muted loop playsinline width="100%">
   </video>
 </p>

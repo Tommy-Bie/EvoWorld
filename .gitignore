@@ -13,4 +13,5 @@ logs/
 *.safetensors
 *.pt
 *.mp4
+!assets/videos/vlm-rollout-demo.mp4
 .DS_Store
